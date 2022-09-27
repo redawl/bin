@@ -1,78 +1,88 @@
 #!/usr/bin/env python3
+'''
+Find files anywhere in a git repositories history
+'''
 from subprocess import check_output
 from os import system
-from sys import argv,exit
 import argparse
 
-def parseArgs():
-  parser = argparse.ArgumentParser(description="Find file in git history")
-  parser.add_argument('--branch', '-b', help="Branch to enumerate", default="master")
-  parser.add_argument('--files', '-f', help="Comma separated list of files to look for", default="id_rsa,.bash_history")
-  return parser.parse_args()
+def parse_args():
+    """Parse commandline args"""
+    parser = argparse.ArgumentParser(description="Find file in git history")
+    parser.add_argument('--branch', '-b', help="Branch to enumerate", default="master")
+    parser.add_argument(
+        '--files',
+        '-f',
+        help="Comma separated list of files to look for",
+        default="id_rsa,.bash_history"
+    )
+    return parser.parse_args()
 
-def getCommits(branch):
-  try:
+def get_commits(branch):
+    """Get all the commits for the current repository"""
     system(f"git reset --hard && git checkout {branch} -q 2>/dev/null")
     output = check_output(['git', 'rev-list', '--remotes']).decode().split("\n")
-  except:
-    colorize('red', "Invalid branch name")
-    exit()
-  
-  return output[:-1]
 
-def checkoutCommit(commit):
-  check_output(['git', 'checkout', commit, '-q'])
+    return output[:-1]
 
-def findFiles(files):
-  command = ['find', '.', '-type', 'f', '(', '-name', files[0]]
-  if len(files) > 1:
-    for file in files[1:]:
-      command.append('-o')
-      command.append('-name')
-      command.append(file)
-  command.append(')')
-  return list(filter(lambda x: x != '',check_output(command).decode().split("\n")))
+def checkout_commit(comm):
+    """Checkout the specified commit"""
+    check_output(['git', 'checkout', comm, '-q'])
+
+def find_files(files):
+    """Get a list of all the files in the repo"""
+    command = ['find', '.', '-type', 'f', '(', '-name', files[0]]
+    if len(files) > 1:
+        for file in files[1:]:
+            command.append('-o')
+            command.append('-name')
+            command.append(file)
+    command.append(')')
+    return list(filter(lambda x: x != '',check_output(command).decode().split("\n")))
 
 def colorize(color, message, end='\n'):
-  colors = {
-    'red': '31',
-    'green': '32',
-    'yellow': '33'
-  }
-  NOCOLOR='\033[0m'
-  print(f"\033[0;{colors[color]}m{message}{NOCOLOR}", end=end)
+    """Color a print statement"""
+    colors = {
+        'red': '31',
+        'green': '32',
+        'yellow': '33'
+    }
+    no_color='\033[0m'
+    print(f"\033[0;{colors[color]}m{message}{no_color}", end=end)
 
-def pretty_print(commit, files):
-  colorize('green', f"Commit {commit}:", end='')
-  [ colorize('green', f"{file} ", end='') for file in files ]
-  print()
-  
+def pretty_print(comm, files):
+    """Print our results in a pretty way"""
+    colorize('green', f"Commit {comm}:", end='')
+    for file in files:
+        colorize('green', f"{file} ", end='')
+    print()
+
 if __name__ == "__main__":
-  # Parse those args
-  args = parseArgs()
+    # Parse those args
+    args = parse_args()
 
-  # Grab those commits
-  commits = getCommits(args.branch)
-  
-  # Setup vars
-  count = len(commits)
-  progress = 0
-  treasure = list()
+    # Grab those commits
+    commits = get_commits(args.branch)
 
-  # Do the work
-  for commit in commits:
-    checkoutCommit(commit)
-    found = findFiles(args.files.split(","))
+    # Setup vars
+    count = len(commits)
+    PROGRESS = 0
+    treasure = []
 
-    if len(found) > 0:
-      treasure.append((commit, found))
-    colorize('yellow', f"[{progress}/{count}] - {commit}")
-    progress += 1
+    # Do the work
+    for commit in commits:
+        checkout_commit(commit)
+        found = find_files(args.files.split(","))
 
-  # Print the results
-  if len(treasure) > 0:
-    colorize('green', "Treasure found")
-    for t in treasure:
-      pretty_print(t[0], t[1])
-  else:
-    colorize('red', "No treasure found :(")
+        if len(found) > 0:
+            treasure.append((commit, found))
+        colorize('yellow', f"[{PROGRESS}/{count}] - {commit}")
+        PROGRESS += 1
+
+    # Print the results
+    if len(treasure) > 0:
+        colorize('green', "Treasure found")
+        for t in treasure:
+            pretty_print(t[0], t[1])
+    else:
+        colorize('red', "No treasure found :(")
